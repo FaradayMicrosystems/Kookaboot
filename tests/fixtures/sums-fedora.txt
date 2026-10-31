@@ -1,0 +1,9 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA256
+
+# Fedora-Workstation-Live-41.iso: 2398879744 bytes
+SHA256 (Fedora-Workstation-Live-41.iso) = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEE...fixture...
+-----END PGP SIGNATURE-----

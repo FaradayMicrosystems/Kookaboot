@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# KookaBoot - turn a drive into a verified, bootable image library (the Virtual Rookery).
+# Licence: PolyForm Noncommercial 1.0.0. See LICENSE.
+set -Eeuo pipefail
+
+kb_find_lib() {
+    local self dir
+    self=$(readlink -f -- "${BASH_SOURCE[0]}")
+    dir=$(dirname -- "$self")
+    for cand in "${KB_LIB_DIR:-}" "$dir/../lib" "$dir/../lib/kookaboot" /usr/local/lib/kookaboot /usr/lib/kookaboot; do
+        [[ -n $cand && -f $cand/common.sh ]] && { readlink -f -- "$cand"; return 0; }
+    done
+    echo "kookaboot: cannot find library files" >&2
+    exit 1
+}
+
+KB_LIB=$(kb_find_lib)
+# Optional settings file (KB_MIN_FREE_MB, KB_CACHE_DIR, ...).
+# shellcheck source=/dev/null
+if [[ -r ${KB_CONF:-/etc/kookaboot.conf} ]]; then . "${KB_CONF:-/etc/kookaboot.conf}"; fi
+
+for f in common drive health verify space ventoy rookery commands; do
+    # shellcheck source=/dev/null
+    . "$KB_LIB/$f.sh"
+done
+
+usage() {
+    cat <<EOF
+KookaBoot $KB_VERSION - bootable image library on a Ventoy drive
+
+Usage: kookaboot COMMAND [ARGS]
+
+Commands:
+  install DEV [--gpt] [--no-secure-boot] [--label NAME] [--reinstall]
+                        Erase DEV and install Ventoy $KB_VENTOY_VERSION + the Rookery
+  add DEV IMAGE (--sha256 HASH | --sums FILE [--sig FILE] [--keyring FILE])
+      [--name NAME] [--replace]
+                        Verify IMAGE, copy it to the drive, re-verify the copy
+  list DEV              Show images on the drive
+  space DEV [--need SIZE|FILE]
+                        Show free space; check whether SIZE fits
+  health DEV            SMART health check (exit 0 ok, 1 warn, 2 failing)
+  upgrade-ventoy DEV    Upgrade Ventoy in place, keeping all images
+  version               Print versions
+  help                  This text
+
+DEV is the whole drive, e.g. /dev/sdb or /dev/disk/by-id/usb-...
+Most commands need root.
+EOF
+}
+
+main() {
+    local cmd=${1:-help}
+    (( $# )) && shift
+    case $cmd in
+        install)        cmd_install "$@" ;;
+        add)            cmd_add "$@" ;;
+        list|ls)        cmd_list "$@" ;;
+        space)          cmd_space "$@" ;;
+        health)         cmd_health "$@" ;;
+        upgrade-ventoy) cmd_upgrade_ventoy "$@" ;;
+        version|--version|-V)
+            printf 'kookaboot %s (Ventoy %s)\n' "$KB_VERSION" "$KB_VENTOY_VERSION" ;;
+        help|--help|-h) usage ;;
+        *) kb_err "Unknown command: $cmd"; usage >&2; exit 64 ;;
+    esac
+}
+
+main "$@"

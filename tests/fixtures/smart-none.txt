@@ -1,0 +1,4 @@
+smartctl 7.4 2023-08-01 r5530 [x86_64-linux-6.8.0] (local build)
+
+/dev/sdc: Unknown USB bridge [0x0781:0x5583 (0x100)]
+Please specify device type with the -d option.
