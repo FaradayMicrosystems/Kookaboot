@@ -7,6 +7,8 @@ Turns a drive into a verified, bootable image library â€” the Virtual Rookery â€
 
 ## Installer ISO
 
+Download: [release/](release/README.md) (join the parts with `cat`, check with `sha256sum -c`).
+
 Write `kookaboot-<version>-amd64.iso` to a USB stick (e.g. `sudo dd if=kookaboot-1.1.0-amd64.iso of=/dev/sdX bs=4M status=progress oflag=sync`), boot it, and use the menu. Build it yourself with `sudo make iso` on an Ubuntu/Debian host; test it with `iso/test-qemu.sh uefi`.
 
 ## Quick start (on an existing Linux PC)

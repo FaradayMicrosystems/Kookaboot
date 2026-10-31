@@ -172,6 +172,24 @@ for d in amdgpu nvidia radeon qcom mellanox netronome liquidio qed cxgb4 mrvl/pr
     rm -rf -- "$CHROOT"/lib/firmware/$d "$CHROOT"/usr/lib/firmware/$d 2>/dev/null || true
 done
 
+FW=$CHROOT/usr/lib/firmware
+# Not needed by a text-mode installer: CPU microcode, GPU, audio, Bluetooth, sensor hubs, cameras.
+rm -rf -- "$FW"/intel-ucode "$FW"/amd-ucode "$FW"/i915 "$FW"/xe "$FW"/cirrus "$FW"/asihpi \
+          "$FW"/intel/vsc "$FW"/intel/ish "$FW"/intel/vpu "$FW"/intel/ibt-* "$FW"/intel/avs \
+          "$FW"/qcom "$FW"/amdgpu "$FW"/nvidia "$FW"/radeon 2>/dev/null || true
+find "$FW" -xtype l -delete   # links whose target was trimmed
+
+# Kernel modules not needed: sound, webcams/TV, InfiniBand, industrial sensors, staging.
+KMOD=$(ls "$CHROOT/usr/lib/modules")
+rm -rf -- "$CHROOT/usr/lib/modules/$KMOD/kernel/sound" \
+          "$CHROOT/usr/lib/modules/$KMOD/kernel/drivers/media" \
+          "$CHROOT/usr/lib/modules/$KMOD/kernel/drivers/infiniband" \
+          "$CHROOT/usr/lib/modules/$KMOD/kernel/drivers/iio" \
+          "$CHROOT/usr/lib/modules/$KMOD/kernel/drivers/staging"
+in_chroot depmod -a "$KMOD"
+
+# Smaller initrd
+sed -i 's/^COMPRESS=.*/COMPRESS=xz/' "$CHROOT/etc/initramfs-tools/initramfs.conf"
 in_chroot update-initramfs -u -k all
 in_chroot apt-get clean
 rm -rf -- "$CHROOT"/var/lib/apt/lists/* "$CHROOT"/tmp/* "$CHROOT"/var/log/*.log "$CHROOT/usr/sbin/policy-rc.d"
