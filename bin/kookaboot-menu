@@ -1,0 +1,161 @@
+#!/usr/bin/env bash
+# KookaBoot text menu. Starts automatically on the KookaBoot live ISO (tty1).
+# Also works on a normal Linux host: sudo kookaboot-menu
+# Licence: PolyForm Noncommercial 1.0.0. See LICENSE.
+set -uo pipefail
+
+SELF_DIR=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
+KB=$SELF_DIR/kookaboot
+[[ -x $KB ]] || KB=$(command -v kookaboot) || { echo "kookaboot not found" >&2; exit 1; }
+KB_VER=$("$KB" version 2>/dev/null | head -n1)
+
+[[ $(id -u) -eq 0 ]] || { echo "Run as root: sudo $0" >&2; exit 1; }
+
+pause() { echo; read -rp "Press Enter to return to the menu... " _ || true; }
+line()  { printf '%*s\n' 60 '' | tr ' ' '-'; }
+
+# pick_drive -> prints chosen whole-disk path, or nothing if cancelled
+pick_drive() {
+    local -a devs=() rows=()
+    local name size model tran n=0 choice
+    while read -r name size tran model; do
+        devs+=("$name")
+        rows+=("$(printf '%-14s %8s  %-5s %s' "$name" "$size" "${tran:--}" "${model:-}")")
+    done < <(lsblk -dpno NAME,SIZE,TRAN,MODEL -e 1,2,7,11 2>/dev/null)
+    if (( ${#devs[@]} == 0 )); then
+        echo "No drives found." >&2
+        return 1
+    fi
+    echo "Drives:" >&2
+    for n in "${!rows[@]}"; do printf '  %d) %s\n' $((n+1)) "${rows[$n]}" >&2; done
+    echo "  0) Cancel" >&2
+    read -rp "Choose a drive: " choice || return 1
+    [[ $choice =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= ${#devs[@]} )) || return 1
+    printf '%s\n' "${devs[$((choice-1))]}"
+}
+
+show_drives() {
+    lsblk -po NAME,SIZE,TYPE,FSTYPE,LABEL,MOUNTPOINT,MODEL -e 1,2,7,11
+}
+
+open_source() {
+    local -a parts=() rows=()
+    local name size fstype label n choice mnt
+    while read -r name size fstype label; do
+        [[ -n $fstype && $fstype != swap && $fstype != crypto_LUKS ]] || continue
+        findmnt -rno TARGET -- "$name" >/dev/null 2>&1 && continue
+        parts+=("$name")
+        rows+=("$(printf '%-16s %8s  %-6s %s' "$name" "$size" "$fstype" "${label:-}")")
+    done < <(lsblk -lpno NAME,SIZE,FSTYPE,LABEL,TYPE 2>/dev/null | awk '$NF=="part"{NF--; print}')
+    if (( ${#parts[@]} == 0 )); then
+        echo "No unmounted partitions with a file system found."
+        return
+    fi
+    echo "Partitions you can open (read-only):"
+    for n in "${!rows[@]}"; do printf '  %d) %s\n' $((n+1)) "${rows[$n]}"; done
+    echo "  0) Cancel"
+    read -rp "Choose: " choice || return
+    [[ $choice =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= ${#parts[@]} )) || return
+    name=${parts[$((choice-1))]}
+    mnt=/mnt/src-$(basename -- "$name")
+    mkdir -p -- "$mnt"
+    if mount -o ro -- "$name" "$mnt"; then
+        echo "Opened $name at $mnt"
+        echo "Image files found:"
+        find "$mnt" -maxdepth 3 -type f \( -iname '*.iso' -o -iname '*.img' \) -printf '  %p\n' 2>/dev/null | head -n 30
+    else
+        rmdir -- "$mnt" 2>/dev/null
+        echo "Could not open $name."
+    fi
+}
+
+add_image() {
+    local dev iso how sums sig keyring hash
+    dev=$(pick_drive) || return
+    echo "Image path (Tab completes). Open a source drive first (option 8) if needed."
+    read -rep "Image: " iso || return
+    [[ -n $iso ]] || return
+    echo "How do you want to check it?"
+    echo "  1) Checksum file (SHA256SUMS, CHECKSUM, sha256sums.txt)"
+    echo "  2) Type the SHA-256"
+    read -rp "Choose: " how || return
+    case $how in
+        1)
+            read -rep "Checksum file: " sums || return
+            read -rep "Signature file (Enter = none / clear-signed): " sig || return
+            read -rep "Keyring / public key file (Enter = skip signature check): " keyring || return
+            local -a args=(add "$dev" "$iso" --sums "$sums")
+            [[ -n $sig ]] && args+=(--sig "$sig")
+            [[ -n $keyring ]] && args+=(--keyring "$keyring")
+            "$KB" "${args[@]}"
+            ;;
+        2)
+            read -rp "SHA-256: " hash || return
+            "$KB" add "$dev" "$iso" --sha256 "$hash"
+            ;;
+        *) echo "Cancelled." ;;
+    esac
+}
+
+network() {
+    if command -v nmtui >/dev/null 2>&1; then
+        nmtui
+    else
+        echo "NetworkManager (nmtui) is not installed."
+    fi
+}
+
+ip_summary() {
+    local ips
+    ips=$(ip -4 -o addr show scope global 2>/dev/null | awk '{print $2": "$4}' | paste -sd' ' -)
+    printf '%s\n' "${ips:-no network}"
+}
+
+run_drive_cmd() {
+    local dev
+    dev=$(pick_drive) || return
+    "$KB" "$@" "$dev"
+}
+
+trap 'echo' INT
+
+while true; do
+    clear
+    line
+    printf '  %s\n' "$KB_VER"
+    printf '  Network: %s\n' "$(ip_summary)"
+    line
+    cat <<'EOF'
+  1) Show drives
+  2) Check drive health
+  3) Install KookaBoot to a drive   (ERASES the drive)
+  4) Add an image to a KookaBoot drive
+  5) List images on a KookaBoot drive
+  6) Check free space on a KookaBoot drive
+  7) Upgrade Ventoy on a KookaBoot drive
+  8) Open a source drive (to read ISO files)
+  9) Network / Wi-Fi setup
+
+  s) Shell (type 'exit' to come back)
+  r) Reboot
+  p) Power off
+EOF
+    line
+    read -rp "Choose: " c || { sleep 1; continue; }
+    echo
+    case $c in
+        1) show_drives; pause ;;
+        2) run_drive_cmd health; pause ;;
+        3) run_drive_cmd install; pause ;;
+        4) add_image; pause ;;
+        5) run_drive_cmd list; pause ;;
+        6) run_drive_cmd space; pause ;;
+        7) run_drive_cmd upgrade-ventoy; pause ;;
+        8) open_source; pause ;;
+        9) network ;;
+        s|S) KB_IN_SHELL=1 bash -i ;;
+        r|R) sync; systemctl reboot ;;
+        p|P) sync; systemctl poweroff ;;
+        *) ;;
+    esac
+done

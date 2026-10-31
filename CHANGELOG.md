@@ -11,4 +11,6 @@ First release of the from-scratch rewrite.
 - `upgrade-ventoy`: in-place upgrade to the pinned version with config backups and image-list check; never downgrades.
 - `list`, `version`, `help`.
 - exFAT mounting falls back to `exfat-fuse` on kernels without exFAT.
+- Live installer ISO (`sudo make iso`): Ubuntu 24.04 base, BIOS + UEFI + Secure Boot, auto-starting text menu (`kookaboot-menu`), wired + Wi-Fi (nmtui), Ventoy bundled for offline use. The boot drive is protected from being erased.
+- `install` refuses drives under 1 GiB.
 - Tests: `tests/unit.sh` (41 checks), `tests/smoke.sh` for real drives, `docs/hardware-testing.md`.

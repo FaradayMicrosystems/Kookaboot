@@ -5,7 +5,11 @@ Turns a drive into a verified, bootable image library â€” the Virtual Rookery â€
 - Linux hosts only. Bash.
 - Status: v1.1.0, awaiting hardware tests. See [CHANGELOG.md](CHANGELOG.md) and [docs/release-plan.md](docs/release-plan.md).
 
-## Quick start
+## Installer ISO
+
+Write `kookaboot-<version>-amd64.iso` to a USB stick (e.g. `sudo dd if=kookaboot-1.1.0-amd64.iso of=/dev/sdX bs=4M status=progress oflag=sync`), boot it, and use the menu. Build it yourself with `sudo make iso` on an Ubuntu/Debian host; test it with `iso/test-qemu.sh uefi`.
+
+## Quick start (on an existing Linux PC)
 
 ```
 git clone https://github.com/FaradayMicrosystems/kookaboot && cd kookaboot

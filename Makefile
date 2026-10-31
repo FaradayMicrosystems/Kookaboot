@@ -1,9 +1,9 @@
 PREFIX ?= /usr/local
 LIBDIR  = $(PREFIX)/lib/kookaboot
 BINDIR  = $(PREFIX)/bin
-SCRIPTS = bin/kookaboot lib/*.sh tests/*.sh
+SCRIPTS = bin/kookaboot bin/kookaboot-menu lib/*.sh tests/*.sh iso/build.sh
 
-.PHONY: install uninstall lint test
+.PHONY: install uninstall lint test iso
 
 install:
 	install -d $(DESTDIR)$(LIBDIR) $(DESTDIR)$(BINDIR)
@@ -24,3 +24,7 @@ lint:
 
 test: lint
 	tests/unit.sh
+
+# Build the live installer ISO (root, Ubuntu/Debian host). Output in iso/out/.
+iso:
+	iso/build.sh

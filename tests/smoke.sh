@@ -3,10 +3,12 @@
 # Usage: sudo tests/smoke.sh /dev/sdX
 set -uo pipefail
 
-ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+ROOT=$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/.." && pwd)
+LIB=$ROOT/lib
+[[ -f $LIB/common.sh ]] || LIB=/usr/local/lib/kookaboot   # installed copy (live ISO)
 for f in common drive health verify space ventoy rookery; do
     # shellcheck source=/dev/null
-    . "$ROOT/lib/$f.sh"
+    . "$LIB/$f.sh"
 done
 
 DEV=${1:-}

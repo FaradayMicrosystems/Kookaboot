@@ -25,11 +25,12 @@ kb_drive_field() {
 }
 
 # kb_drive_system_disks -> whole disks that hold the running system
-# (/, /boot, /boot/efi, /usr, /var, /home and active swap), one per line.
+# (/, /boot, /boot/efi, /usr, /var, /home, live-ISO media and active swap), one per line.
 kb_drive_system_disks() {
     local src mp
     {
-        for mp in / /boot /boot/efi /usr /var /home; do
+        # Live ISO media: /cdrom (casper), /run/live/medium (live-boot), /isodevice
+        for mp in / /boot /boot/efi /usr /var /home /cdrom /run/live/medium /isodevice; do
             src=$(findmnt -no SOURCE -- "$mp" 2>/dev/null) || continue
             [[ $src == /dev/* ]] && printf '%s\n' "${src%%\[*}"
         done
@@ -71,6 +72,10 @@ kb_drive_assert_safe() {
     done < <(kb_drive_system_disks)
 
     if [[ $mode == wipe ]]; then
+        local bytes
+        bytes=$(lsblk -bdno SIZE -- "$dev" 2>/dev/null | tr -d ' ')
+        (( ${bytes:-0} >= 1073741824 )) \
+            || kb_die "$dev is smaller than 1 GiB. Too small for KookaBoot (floppy or card reader slot?)."
         mounts=$(kb_drive_mounts "$dev")
         if [[ -n $mounts ]]; then
             kb_err "$dev has mounted partitions:"
