@@ -14,8 +14,13 @@ uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/kookaboot
 	rm -rf $(DESTDIR)$(LIBDIR)
 
+# Lint is skipped with a warning when shellcheck is not installed.
 lint:
-	shellcheck -x -s bash $(SCRIPTS)
+	@if command -v shellcheck >/dev/null 2>&1; then \
+		shellcheck -x -s bash $(SCRIPTS) && echo "lint: OK"; \
+	else \
+		echo "lint: SKIPPED - shellcheck not installed (apt/pacman: shellcheck, dnf: ShellCheck)"; \
+	fi
 
 test: lint
 	tests/unit.sh
